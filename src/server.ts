@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import bodyParser from 'body-parser';
 import amqplib from 'amqplib';
 import dotenv from 'dotenv';
+import { connectDB } from './config/db';
+import { Message } from './models/Messages';
 
 dotenv.config();
 
@@ -13,6 +15,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL;
 const QUEUE_NAME = process.env.QUEUE_NAME;
+
+// Connect to MongoDB
+connectDB();
 
 // API to send a message to RabbitMQ
 app.post("/send", async (req: Request, res: Response): Promise<any> => {
@@ -31,11 +36,20 @@ app.post("/send", async (req: Request, res: Response): Promise<any> => {
             return res.status(400).json({ error:"QUEUE_NAME is not defined" });
         }
 
+        // Save to MongoDB
+        const newMessage = new Message({ content: message, status: 'pending' });
+        await newMessage.save();
+
         const connection = await amqplib.connect(RABBITMQ_URL);
         const channel = await connection.createChannel();
 
         await channel.assertQueue(QUEUE_NAME, { durable: true });
-        channel.sendToQueue(QUEUE_NAME, Buffer.from(message));
+        channel.sendToQueue(QUEUE_NAME, Buffer.from(
+            JSON.stringify({
+                id: newMessage._id,
+                content: message
+            })
+        ));
 
         setTimeout(() => {
             connection.close();
