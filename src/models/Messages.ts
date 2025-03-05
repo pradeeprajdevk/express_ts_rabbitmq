@@ -7,7 +7,7 @@ const MessageSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'processed'],
+        enum: ['pending', 'processed', 'reprocessed'],
         default: 'pending'
     },
     createdAt: { type: Date, default: Date.now },
